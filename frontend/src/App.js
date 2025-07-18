@@ -1,329 +1,261 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
-import { ref, update, onValue } from 'firebase/database';
-import { database } from './firebase';
 import './App.css';
 import Weather from './Weather';
-
-// Chart.js imports
-import { Line } from "react-chartjs-2";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
   Tooltip,
-  Legend,
-} from "chart.js";
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
+  CartesianGrid,
+  ResponsiveContainer
+} from 'recharts';
 
 function App() {
-  const [moisturePercent, setMoisturePercentage] = useState(null);
-  const [moistureHistory, setMoistureHistory] = useState([]); // New: history of moisture %
+  const [plantAMoisture, setPlantAMoisture] = useState(0);
+  const [plantBMoisture, setPlantBMoisture] = useState(0);
+  const [temperature, setTemperature] = useState(0);
+  const [humidity, setHumidity] = useState(0);
+  const [soilDry, setSoilDry] = useState(false);
+  const [soilDry2, setSoilDry2] = useState(false);
+  const [mode, setMode] = useState("manual");
   const [error, setError] = useState(null);
-  const [pumpStatus, setPumpStatus] = useState(false);
-  const [lastIrrigation, setLastIrrigation] = useState(null);
-  const [autoMode, setAutoMode] = useState(false);
-  const [willRain, setWillRain] = useState(false);
-  const [irrigationHistory, setIrrigationHistory] = useState([]);
-
-  const [systemStatus, setSystemStatus] = useState({
-    nodemcu: false,
-    sensor: false,
-    pump: false
+  const [cameraUrl, setCameraUrl] = useState('');
+  const [imageSrc, setImageSrc] = useState('');
+  const [deviceStatus, setDeviceStatus] = useState({
+    fan: false,
+    pump1: false,
+    pump2: false,
+    light: false,
   });
 
-  // Firebase listeners
-  useEffect(() => {
-    const moistureRef = ref(database, '/Sensor/MoisturePercent');
-    const lastIrrigationRef = ref(database, '/Pump/last_irrigation');
-    const nodemcuRef = ref(database, '/Sensor/nodemcu_status');
-    const pumpStatusRef = ref(database, '/Pump/status');
+  const recognitionRef = useRef(null);
 
-    const unsubscribeMoisture = onValue(moistureRef, (snapshot) => {
-      const val = snapshot.val();
-      if (typeof val === 'number') {
-        setMoisturePercentage(val);
-        setSystemStatus(prev => ({ ...prev, sensor: true }));
-        setError(null);
+  const mockIrrigationHistory = [
+    { day: 'Mon', moisture: 20 },
+    { day: 'Tue', moisture: 35 },
+    { day: 'Wed', moisture: 30 },
+    { day: 'Thu', moisture: 45 },
+    { day: 'Fri', moisture: 40 },
+  ];
 
-        // Update moisture history with timestamp
-        setMoistureHistory(prev => {
-          const newEntry = { time: Date.now(), value: val };
-          // Keep last 20 entries max to avoid memory issues
-          const updated = [...prev, newEntry].slice(-20);
-          return updated;
-        });
+  const initializeSpeechRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech Recognition not supported.");
+      return null;
+    }
 
-      } else {
-        setMoisturePercentage(null);
-        setSystemStatus(prev => ({ ...prev, sensor: false }));
-        setError('Moisture data unavailable');
-      }
-    }, () => {
-      setMoisturePercentage(null);
-      setSystemStatus(prev => ({ ...prev, sensor: false }));
-      setError('Failed to read moisture data');
-    });
-
-    const unsubscribeLastIrrigation = onValue(lastIrrigationRef, (snapshot) => {
-      const val = snapshot.val();
-      setLastIrrigation(val);
-      if (val) {
-        setIrrigationHistory(prev => {
-          if (prev.length && prev[prev.length - 1].time === val) return prev;
-          return [...prev, { time: val, value: 1 }];
-        });
-      }
-    });
-
-    const unsubscribeNodemcu = onValue(nodemcuRef, (snapshot) => {
-      const status = snapshot.val();
-      setSystemStatus(prev => ({
-        ...prev,
-        nodemcu: status === 'connected' || status === true
-      }));
-    });
-
-    const unsubscribePumpStatus = onValue(pumpStatusRef, (snapshot) => {
-      const status = snapshot.val();
-      const isOn = typeof status === 'string' && status.toLowerCase() === 'on';
-      setPumpStatus(isOn);
-      setSystemStatus(prev => ({ ...prev, pump: isOn }));
-    });
-
-    return () => {
-      unsubscribeMoisture();
-      unsubscribeLastIrrigation();
-      unsubscribeNodemcu();
-      unsubscribePumpStatus();
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.lang = 'en-US';
+    recognition.onresult = (event) => {
+      const command = event.results[event.results.length - 1][0].transcript.toLowerCase();
+      if (command.includes("turn on pump one")) toggleDevice("pump1", true);
+      else if (command.includes("turn off pump one")) toggleDevice("pump1", false);
+      else if (command.includes("turn on pump two")) toggleDevice("pump2", true);
+      else if (command.includes("turn off pump two")) toggleDevice("pump2", false);
+      else if (command.includes("turn on fan")) toggleDevice("fan", true);
+      else if (command.includes("turn off fan")) toggleDevice("fan", false);
+      else if (command.includes("turn on light")) toggleDevice("light", true);
+      else if (command.includes("turn off light")) toggleDevice("light", false);
+      else if (command.includes("switch to manual")) updateMode("manual");
+      else if (command.includes("switch to auto")) updateMode("auto");
     };
-  }, []);
 
-  // Auto mode listener
+    recognition.onerror = (event) => console.error("Speech recognition error:", event.error);
+    return recognition;
+  };
+
+  const updateMode = async (newMode) => {
+    try {
+      await fetch('http://localhost:5000/update-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: newMode })
+      });
+      setMode(newMode);
+    } catch (error) {
+      console.error('Mode update failed:', error);
+    }
+
+    if (newMode === "auto") {
+      const recognition = initializeSpeechRecognition();
+      if (recognition) {
+        recognition.start();
+        recognitionRef.current = recognition;
+      }
+    } else {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    }
+  };
+
+  const toggleMode = () => updateMode(mode === "auto" ? "manual" : "auto");
+
+  const toggleDevice = async (device, forceStatus = null) => {
+  const newStatus = forceStatus !== null ? forceStatus : !deviceStatus[device];
+
+  try {
+    const res = await fetch('http://localhost:5000/update-device', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device, status: newStatus })
+    });
+
+    if (res.ok) {
+      // Update state ONLY if backend accepted
+      setDeviceStatus(prev => ({ ...prev, [device]: newStatus }));
+      console.log(`✅ ${device} updated to ${newStatus} in Firebase`);
+    } else {
+      const err = await res.json();
+      console.error("❌ Device update failed:", err);
+    }
+  } catch (error) {
+    console.error(`❌ Failed to toggle ${device}:`, error);
+  }
+};
+
+
   useEffect(() => {
-    const autoRef = ref(database, '/Sensor/auto_mode');
-    const unsubscribeAuto = onValue(autoRef, (snapshot) => {
-      setAutoMode(!!snapshot.val());
-    });
-    return () => unsubscribeAuto();
+    const fetchSensorData = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/Sensor");
+        if (!res.ok) throw new Error("Failed to fetch sensor data");
+        const data = await res.json();
+
+        console.log("Sensor Data:", data);  // ✅ DEBUGGING LOG
+
+        setPlantAMoisture(data.soil_moisture ?? 0);
+        setPlantBMoisture(data.soil_moisture1 ?? 0);
+        setTemperature(data.temperature ?? 0);
+        setHumidity(data.humidity ?? 0);
+        setSoilDry(data.soil_dry ?? false);
+        setSoilDry2(data.soil_dry2 ?? false);
+        setDeviceStatus({
+          fan: data.fan ?? false,
+          pump1: data.pump1 ?? false,
+          pump2: data.pump2 ?? false,
+          light: data.light ?? false
+        });
+        setMode(data.mode ?? "manual");
+        setError(null);
+      } catch (err) {
+        console.error("Sensor data fetch failed:", err);
+        setError("Could not load sensor data.");
+      }
+    };
+
+    fetchSensorData(); // fetch once on load
+    const interval = setInterval(fetchSensorData, 10000); // fetch every 10s
+    return () => clearInterval(interval);
   }, []);
-
-  // Toggle auto irrigation mode
-  const toggleAutoMode = () => {
-    const newAutoMode = !autoMode;
-
-    if (newAutoMode && willRain) {
-      alert("Auto mode disabled because rain is forecasted.");
-      return;
-    }
-
-    update(ref(database, '/Sensor'), {
-      auto_mode: newAutoMode,
-      pump: newAutoMode ? 'ON' : 'OFF'
-    }).then(() => {
-      setAutoMode(newAutoMode);
-    }).catch(err => {
-      console.error('Failed to toggle auto mode:', err);
-    });
-  };
-
-  // Manual pump control
-  const setPump = (status) => {
-    const isOn = status === 'ON';
-    const now = new Date().toLocaleString();
-
-    update(ref(database, '/Pump'), {
-      status: status.toLowerCase(),
-      last_irrigation: isOn ? now : lastIrrigation
-    }).then(() => {
-      setPumpStatus(isOn);
-      if (isOn) setLastIrrigation(now);
-    }).catch((error) => {
-      console.error('Error updating pump status:', error);
-    });
-  };
-
-  // Chart data for moisture history
-  const moistureChartData = {
-    labels: moistureHistory.map(entry => new Date(entry.time).toLocaleTimeString()),
-    datasets: [{
-      label: "Soil Moisture (%)",
-      data: moistureHistory.map(entry => entry.value),
-      borderColor: "rgb(54, 162, 235)",
-      backgroundColor: "rgba(54, 162, 235, 0.4)",
-      tension: 0.3,
-      fill: true,
-      pointRadius: 4,
-      pointHoverRadius: 7,
-    }]
-  };
-
-  const moistureChartOptions = {
-    scales: {
-      y: {
-        min: 0,
-        max: 100,
-        ticks: { stepSize: 10, callback: val => `${val}%` },
-        grid: { drawTicks: true, drawBorder: true },
-      },
-      x: {
-        grid: { drawTicks: false, drawBorder: false }
-      }
-    },
-    plugins: {
-      legend: { display: true },
-      tooltip: {
-        callbacks: {
-          label: (context) => `${context.parsed.y}% at ${context.label}`
-        }
-      }
-    },
-    maintainAspectRatio: false,
-  };
-
-  // Chart data for irrigation history (kept as original)
-  const irrigationChartData = {
-    labels: irrigationHistory.map(entry => new Date(entry.time).toLocaleString()),
-    datasets: [{
-      label: "Irrigation Events",
-      data: irrigationHistory.map(() => 1),
-      borderColor: "rgb(75, 192, 192)",
-      tension: 0.2,
-      fill: false,
-      pointRadius: 5,
-      pointHoverRadius: 8,
-    }]
-  };
-
-  const irrigationChartOptions = {
-    scales: {
-      y: {
-        min: 0,
-        max: 2,
-        ticks: { stepSize: 1, callback: () => "" },
-        grid: { drawTicks: false, drawBorder: false },
-      }
-    },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (context) => `Irrigation Event at ${context.label}`
-        }
-      }
-    }
-  };
 
   return (
     <div className="dashboard-container">
-      <h1 className="dashboard-title">SMART IRRIGATION SYSTEM</h1>
-      <div className="dashboard-grid">
-        <div className="left-column">
-          <div className="card moisture-card">
-            <h3>CURRENT MOISTURE</h3>
-            <div className="moisture-display">
-              <div className="moisture-circle" style={{ width: 100, height: 100 }}>
-                <CircularProgressbar
-                  value={moisturePercent || 0}
-                  text={moisturePercent !== null ? `${moisturePercent}%` : 'N/A'}
-                  styles={buildStyles({
-                    pathColor: moisturePercent > 30 ? '#4CAF50' : '#F44336',
-                    textSize: '16px',
-                    textColor: '#000',
-                    trailColor: '#eee'
-                  })}
-                />
-              </div>
-              <p style={{ textAlign: 'center', marginTop: 10 }}>
-                {moisturePercent !== null
-                  ? moisturePercent < 50 ? 'Dry' : 'Moist'
-                  : error || 'N/A'}
-              </p>
-            </div>
-            <div className="timestamp">
-              <div>{new Date().toLocaleDateString()}</div>
-              <div>{new Date().toLocaleTimeString()}</div>
-            </div>
+      <h1 className="dashboard-title">Smart IoT Dashboard</h1>
+
+      <div className="dashboard-section">
+        <h2>Sensor Readings</h2>
+        <div className="dashboard-card">
+          <div className="dashboard-item">
+            <h3>Plant A Moisture</h3>
+            <CircularProgressbar value={plantAMoisture} text={`${plantAMoisture}%`}
+              styles={buildStyles({ pathColor: plantAMoisture > 30 ? '#4CAF50' : '#F44336' })} />
           </div>
-
-         <div className="card moisture-history-card" style={{ height: 500, marginTop: 20 }}>
-  <h3>LAST IRRIGATION</h3>
-  <div className="last-irrigation-time">{lastIrrigation || 'N/A'}</div>
-  {moistureHistory.length > 0 ? (
-    <div style={{ height: '100%' }}>
-      <Line data={moistureChartData} options={{ 
-        ...moistureChartOptions,
-        maintainAspectRatio: false 
-      }} />
-    </div>
-  ) : (
-    <p>No moisture data available yet.</p>
-  )}
-</div>
-
-
-        </div>
-
-        <div className="right-column">
-          <div className="card pump-control-card">
-            <h3>PUMP CONTROL</h3>
-            <div className="auto-mode-toggle">
-              <label>Automatic Mode</label>
-              <label className="switch">
-                <input type="checkbox" checked={autoMode} onChange={toggleAutoMode} />
-                <span className="slider"></span>
-              </label>
-            </div>
-
-            {!autoMode && (
-              <div className="pump-buttons">
-                <button onClick={() => setPump('ON')}>TURN ON</button>
-                <button onClick={() => setPump('OFF')}>TURN OFF</button>
-              </div>
-            )}
-
-            <div>
-              <p>Pump is currently: <strong>{pumpStatus ? 'ON' : 'OFF'}</strong></p>
-            </div>
+          <div className="dashboard-item">
+            <h3>Plant B Moisture</h3>
+            <CircularProgressbar value={plantBMoisture} text={`${plantBMoisture}%`}
+              styles={buildStyles({ pathColor: plantBMoisture > 30 ? '#4CAF50' : '#F44336' })} />
           </div>
-
-          <div className="card temperature-card">
-            <h3>TEMPERATURE STATUS</h3>
-            <Weather setWillRain={setWillRain} />
+          <div className="dashboard-item">
+            <h3>Temperature & Humidity</h3>
+            <p>Temp: {temperature}°C</p>
+            <p>Humidity: {humidity}%</p>
           </div>
-
-          <div className="card system-status-card">
-            <h3>SYSTEM STATUS</h3>
-            <ul className="status-list">
-              <li>
-                <span className={`status-dot ${systemStatus.nodemcu ? 'green' : 'red'}`}></span>
-                NodeMCU: {systemStatus.nodemcu ? 'Connected' : 'Disconnected'}
-              </li>
-              <li>
-                <span className={`status-dot ${systemStatus.sensor ? 'green' : 'red'}`}></span>
-                Sensor: {systemStatus.sensor ? 'Online' : 'Offline'}
-              </li>
-              <li>
-                <span className={`status-dot ${systemStatus.pump ? 'green' : 'red'}`}></span>
-                Pump: {systemStatus.pump ? 'On' : 'Off'}
-              </li>
-            </ul>
+          <div className="dashboard-item">
+            <h3>Soil Dry Status</h3>
+            <p>Plant A: {soilDry ? "Dry" : "Moist"}</p>
+            <p>Plant B: {soilDry2 ? "Dry" : "Moist"}</p>
+          </div>
+          <div className="dashboard-item">
+            <h3>Weather</h3>
+            <Weather />
           </div>
         </div>
       </div>
+
+      <div className="dashboard-section">
+        <h2>Irrigation History</h2>
+        <div className="dashboard-card">
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={mockIrrigationHistory}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="day" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="moisture" fill="#4CAF50" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="dashboard-section">
+        <h2>Device Control</h2>
+        <div className="dashboard-card">
+          <div className="dashboard-item">
+            <h3>Mode: {mode === "auto" ? "Automatic" : "Manual"}</h3>
+            <label className="switch">
+              <input type="checkbox" checked={mode === "auto"} onChange={toggleMode} />
+              <span className="slider" />
+            </label>
+            {mode === "auto" && <p style={{ color: "#4CAF50" }}>🎙️ Speak your commands</p>}
+          </div>
+          {Object.entries(deviceStatus).map(([device, status]) => (
+            <div className="dashboard-item" key={device}>
+              <h3>{device.toUpperCase()}</h3>
+              <p>Status: {status ? "ON" : "OFF"}</p>
+              {mode === "manual" && (
+                <label className="switch">
+                  <input type="checkbox" checked={status} onChange={() => toggleDevice(device)} />
+                  <span className="slider" />
+                </label>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="dashboard-section">
+        <h2>Camera Feed</h2>
+        <div className="dashboard-card" style={{ textAlign: 'center' }}>
+          <input
+            type="text"
+            placeholder="Enter camera URL"
+            value={cameraUrl}
+            onChange={(e) => setCameraUrl(e.target.value)}
+            style={{ padding: '10px', width: '70%' }}
+          />
+          <button onClick={() => setImageSrc(cameraUrl)} style={{ marginTop: '10px' }}>
+            Load Feed
+          </button>
+          {imageSrc && (
+            <img
+              src={imageSrc}
+              alt="Camera"
+              width={800}
+              onError={() => alert('Image load failed')}
+              style={{ marginTop: '10px', borderRadius: '10px', border: '1px solid #ccc' }}
+            />
+          )}
+        </div>
+      </div>
+
+      {error && <div className="error-message">{error}</div>}
     </div>
   );
 }

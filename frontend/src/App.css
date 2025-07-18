@@ -1,291 +1,235 @@
 /* App.css */
-
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #f4f7f9;
+  background-image: url('/public/background.webp'); /* keep your original background */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   margin: 0;
   padding: 25px;
   color: #333;
 }
 
 .dashboard-container {
-  padding: 40px;
   max-width: 1200px;
   margin: 0 auto;
+  padding: 20px;
+  width: 90vw;
+  box-sizing: border-box;
 }
-.moisture-history-card {
-  height: 300px;
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-.moisture-chart-wrapper {
-  flex: 1;
-}
-
 
 .dashboard-title {
   text-align: center;
-  font-size: 2.8rem;
-  margin-bottom: 40px;
-  color: #2e7d32;
+  font-size: 2.2rem;
+  margin-bottom: 30px;
+  color: #fafcfa;
   font-weight: 700;
 }
 
-.dashboard-grid {
+.dashboard-section {
+  margin-bottom: 30px;
+  background-color: #cde8bb;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  max-width: 100%;
+}
+
+.dashboard-card {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
 }
 
-/* Left column layout for vertical stacking */
-.left-column {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-/* Right column layout for system cards */
-.right-column {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.card {
-  background-color: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+.dashboard-item {
+  background-color: #ffffffcc; /* white with slight transparency */
+  border-radius: 8px;
+  padding: 15px;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
-.card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+.dashboard-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  cursor: default;
 }
 
-h3 {
-  font-size: 1.4rem;
-  margin-bottom: 18px;
+.dashboard-item h3 {
+  color: #2e7d32;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.dashboard-item h3 i {
+  margin-right: 10px;
+  color: black;  /* changed icon color to black */
+  vertical-align: middle;
+  font-size: 1.3rem;
+}
+
+.dashboard-section h2 {
+  font-size: 1.1rem;
+  margin-bottom: 10px;
   color: #2e7d32;
 }
 
+.dashboard-value {
+  font-weight: 500;
+  font-size: 1.2rem;
+  line-height: 1.5;
+  color: #444;
+}
+
+.dashboard-value div {
+  margin-bottom: 5px;
+}
+
 .moisture-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 20px;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 10px;
 }
 
-.moisture-circle {
-  width: 110px;
-  height: 110px;
-  background-color: #c8e6c9;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.7rem;
-  font-weight: bold;
-  color: #1b5e20;
-  margin-bottom: 12px;
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.05);
-}
-
-.moisture-status {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #388e3c;
-}
-
-.timestamp {
-  margin-top: 18px;
-  font-size: 0.9rem;
-  text-align: right;
-  color: #777;
-}
-
-.pump-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 14px;
-}
-
-.pump-buttons button {
-  flex: 1;
-  margin: 0 6px;
-  padding: 12px;
-  border: none;
-  border-radius: 8px;
-  background-color: #e0f2f1;
-  cursor: pointer;
-  font-weight: 600;
-  color: #00695c;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-}
-
-.pump-buttons button:hover {
-  background-color: #26a69a;
+.control-button {
+  background-color: #4CAF50;
   color: white;
-  transform: scale(1.02);
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  width: 100%;
+  transition: background-color 0.3s;
+}
+
+.control-button:hover {
+  background-color: #3e8e41;
 }
 
 .auto-mode-toggle {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
-}
-
-.temperature-value {
-  font-size: 30px;
-  font-weight: bold;
-  margin-top: 12px;
-  text-align: center;
-}
-
-.system-status-card li {
-  margin: 6px 0;
-  font-size: 1rem;
-}
-
-.location-info {
-  text-align: center;
+  margin: 10px 0;
   font-size: 0.9rem;
-  color: #888;
-  margin-top: 6px;
-}
-
-.last-irrigation-time {
-  font-size: 1.4rem;
-  text-align: center;
-  margin-bottom: 10px;
-  font-weight: 600;
-  color: #333;
-}
-
-.moisture-analytics {
-  text-align: center;
-  max-height: 400px;
-  overflow-y: auto;
-  padding-bottom: 20px;
-}
-
-.moisture-analytics img {
-  width: 100%;
-  height: auto;
-  border-radius: 12px;
-}
-
-.status-list {
-  list-style: none;
-  padding-left: 0;
-  font-size: 0.95rem;
-  color: #555;
-}
-
-.status-list li {
-  padding: 6px 0;
-  display: flex;
-  align-items: center;
-}
-
-.status-dot {
-  height: 10px;
-  width: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 10px;
-}
-
-.status-dot.green {
-  background-color: #4caf50;
-}
-
-.status-dot.red {
-  background-color: #f44336;
-}
-
-.card-irrigation-history-card,
-.card-system-status-card {
-  background-color: white;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s ease;
-}
-
-.card-irrigation-history-card {
-  max-height: 410px;
-  overflow-y: auto;
-}
-
-.card-system-status-card {
-  height: auto;
-}
-
-/* Switch Toggle */
-.switch input {
-  display: none;
 }
 
 .switch {
   position: relative;
   display: inline-block;
   width: 50px;
-  height: 28px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
 
 .slider {
   position: absolute;
   cursor: pointer;
-  background-color: #ccc;
-  border-radius: 34px;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  transition: 0.4s;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
 }
 
-.slider::before {
+.slider:before {
   position: absolute;
   content: "";
-  height: 20px;
-  width: 20px;
+  height: 16px;
+  width: 16px;
   left: 4px;
   bottom: 4px;
   background-color: white;
+  transition: .4s;
   border-radius: 50%;
-  transition: 0.4s;
 }
 
 input:checked + .slider {
-  background-color: #4caf50;
+  background-color: #4CAF50;
 }
 
-input:checked + .slider::before {
-  transform: translateX(22px);
+input:checked + .slider:before {
+  transform: translateX(26px);
 }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .dashboard-grid {
+.error-message {
+  color: #f44336;
+  text-align: center;
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #ffebee;
+  border-radius: 4px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .dashboard-card {
     grid-template-columns: 1fr;
   }
-
-  .left-column,
-  .right-column {
-    gap: 24px;
+  
+  .dashboard-title {
+    font-size: 1.8rem;
   }
+}
 
-  .pump-buttons {
-    flex-direction: column;
-  }
+/* Weather Component Styles */
+.weather-data {
+  font-size: 0.9rem;
+}
 
-  .pump-buttons button {
-    margin: 6px 0;
+.weather-location {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.weather-temp {
+  display: flex;
+  align-items: center;
+  font-size: 1.2rem;
+  margin: 8px 0;
+}
+
+.weather-temp img {
+  width: 40px;
+  height: 40px;
+  margin-right: 8px;
+}
+
+.weather-humidity, .weather-desc {
+  margin: 4px 0;
+  color: #555;
+}
+
+.weather-loading {
+  color: #666;
+  font-style: italic;
+}
+
+.weather-error {
+  color: #f44336;
+}
+
+/* Black icon color override */
+.icon-black {
+  color: black !important;
+}
+
+/* Make dashboard container wider on large screens */
+@media (min-width: 1024px) {
+  .dashboard-container {
+    max-width: 1400px;
+    width: 95vw;
   }
 }
