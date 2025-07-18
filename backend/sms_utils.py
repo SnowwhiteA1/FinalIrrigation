@@ -3,7 +3,7 @@ from twilio.rest import Client
 # Your Twilio credentials (replace with your own)
 TWILIO_ACCOUNT_SID = "AC7478e94a5ac6898d441cd57549665906"
 TWILIO_AUTH_TOKEN = "7f9f727ea938d023a53da12e711cbb3d"
-TWILIO_PHONE_NUMBER = "+127693246135"  # Your Twilio phone number
+TWILIO_PHONE_NUMBER = "+27693246135"  # Your Twilio phone number
 
 client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 

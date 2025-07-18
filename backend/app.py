@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, db
-from backend.sms_utils import send_motion_alert
 from sms_utils import send_motion_alert_sms
+
 
 app = Flask(__name__)
 CORS(app)
