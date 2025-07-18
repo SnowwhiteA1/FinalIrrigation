@@ -2,12 +2,14 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, db
+from backend.sms_utils import send_motion_alert
+from sms_utils import send_motion_alert_sms
 
 app = Flask(__name__)
 CORS(app)
 
 # Firebase Admin SDK Key
-cred = credentials.Certificate("firebase_key.json")  # Make sure this file exists
+cred = credentials.Certificate("firebase_key.json")  # Path to your Firebase service account json file
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://smart-irrigation-system-fd89c-default-rtdb.firebaseio.com/'
 })
@@ -27,8 +29,18 @@ def get_sensor_data():
 
         raw_moisture = sensor.get("soil_moisture", 0)
         raw_moisture1 = sensor.get("soil_moisture1", 0)
+        motion_detected = sensor.get("motion", False)
 
+        # Check if motion alert was already sent
+        motion_alert_sent = data.get("motion_alert_sent", False)
 
+        # Send email if motion detected and alert not sent yet
+        if motion_detected and not motion_alert_sent:
+            send_motion_alert_sms("+27693246135")  # Replace with actual recipient email
+            db.reference("/").update({"motion_alert_sent": True})
+        elif not motion_detected and motion_alert_sent:
+            # Reset alert flag when no motion
+            db.reference("/").update({"motion_alert_sent": False})
 
         response = {
             "soil_moisture": raw_moisture,
@@ -39,10 +51,10 @@ def get_sensor_data():
             "soil_dry2": sensor.get("soil_dry2", False),
             "fan": device.get("fan", False),
             "pump1": device.get("pump1", False),
-            "outside_light":device.get("outside_light", False),
-            "inside_light":device.get("inside_light", False),
-            "garage_door":device.get("garage_door", False),
-            "motion":sensor.get("motion", False),
+            "outside_light": device.get("outside_light", False),
+            "inside_light": device.get("inside_light", False),
+            "garage_door": device.get("garage_door", False),
+            "motion": motion_detected,
             "pump2": device.get("pump2", False),
             "light": device.get("light", False),
             "mode": "auto" if control.get("auto_mode", False) else "manual"
@@ -52,6 +64,7 @@ def get_sensor_data():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/update-device', methods=['POST'])
 def update_device():
@@ -82,9 +95,11 @@ def update_mode():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify({"message": "pong"}), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)
