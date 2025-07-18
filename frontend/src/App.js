@@ -194,8 +194,8 @@ function App() {
             <h3>System Status </h3>
             <p>Motion Detected: {motion ? "Yes" : "No"}</p>
             <p>Garage Door: {garageDoor ? "Open" : "Closed"}</p>
-            <p>Outside Light: {outsideLight ? "On" : "Off"}</p>
-            <p>Inside Light: {insideLight ? "On" : "Off"}</p>
+            <p>Inside light: {insideLight ? "True" : "False"}</p>
+            <p>Outside light : {garageDoor ? "True" : "False"}</p>
             
           </div>
           <div className="dashboard-item">
