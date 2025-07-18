@@ -28,19 +28,21 @@ def get_sensor_data():
         raw_moisture = sensor.get("soil_moisture", 0)
         raw_moisture1 = sensor.get("soil_moisture1", 0)
 
-        # Convert to percentage (0–100%)
-        moisture_percent1 = round((raw_moisture / 1023) * 100, 1)
-        moisture_percent2 = round((raw_moisture1 / 1023) * 100, 1)
+
 
         response = {
-            "soil_moisture": moisture_percent1,
-            "soil_moisture1": moisture_percent2,
+            "soil_moisture": raw_moisture,
+            "soil_moisture1": raw_moisture1,
             "temperature": float(sensor.get("temperature", 0)),
             "humidity": float(sensor.get("humidity", 0)),
             "soil_dry": sensor.get("soil_dry", False),
             "soil_dry2": sensor.get("soil_dry2", False),
             "fan": device.get("fan", False),
             "pump1": device.get("pump1", False),
+            "outside_light":device.get("outside_light", False),
+            "inside_light":device.get("inside_light", False),
+            "garage_door":device.get("garage_door", False),
+            "motion":sensor.get("motion", False),
             "pump2": device.get("pump2", False),
             "light": device.get("light", False),
             "mode": "auto" if control.get("auto_mode", False) else "manual"

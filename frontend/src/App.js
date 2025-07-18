@@ -3,6 +3,7 @@ import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import './App.css';
 import Weather from './Weather';
+import SplashScreen from './SplashScreen';
 import {
   BarChart,
   Bar,
@@ -19,6 +20,10 @@ function App() {
   const [temperature, setTemperature] = useState(0);
   const [humidity, setHumidity] = useState(0);
   const [soilDry, setSoilDry] = useState(false);
+  const [motion , Motion] = useState(false);
+  const [garageDoor, GarageDoor] = useState(false);
+  const [outsideLight, OutsideLight] = useState(false);
+  const [insideLight, InsideLight] = useState(false);
   const [soilDry2, setSoilDry2] = useState(false);
   const [mode, setMode] = useState("manual");
   const [error, setError] = useState(null);
@@ -92,7 +97,7 @@ function App() {
         recognitionRef.current.stop();
         recognitionRef.current = null;
       }
-    }
+    } 
   };
 
   const toggleMode = () => updateMode(mode === "auto" ? "manual" : "auto");
@@ -136,6 +141,9 @@ function App() {
         setHumidity(data.humidity ?? 0);
         setSoilDry(data.soil_dry ?? false);
         setSoilDry2(data.soil_dry2 ?? false);
+        Motion(data.motion ?? false);
+        GarageDoor(data.garage_door ?? false);
+        OutsideLight(data.outside_light ?? false);
         setDeviceStatus({
           fan: data.fan ?? false,
           pump1: data.pump1 ?? false,
@@ -178,13 +186,21 @@ function App() {
             <p>Humidity: {humidity}%</p>
           </div>
           <div className="dashboard-item">
-            <h3>Soil Dry Status</h3>
+            <h3>Soil Status</h3>
             <p>Plant A: {soilDry ? "Dry" : "Moist"}</p>
             <p>Plant B: {soilDry2 ? "Dry" : "Moist"}</p>
           </div>
           <div className="dashboard-item">
+            <h3>System Status </h3>
+            <p>Motion Detected: {motion ? "Yes" : "No"}</p>
+            <p>Garage Door: {garageDoor ? "Open" : "Closed"}</p>
+            <p>Outside Light: {outsideLight ? "On" : "Off"}</p>
+            <p>Inside Light: {insideLight ? "On" : "Off"}</p>
+            
+          </div>
+          <div className="dashboard-item">
             <h3>Weather</h3>
-            <Weather />
+            <Weather/>
           </div>
         </div>
       </div>
@@ -254,6 +270,9 @@ function App() {
           )}
         </div>
       </div>
+      <div className="dashboard-section">
+        <h2>Motion Sensor (PIR)</h2>
+        </div>
 
       {error && <div className="error-message">{error}</div>}
     </div>

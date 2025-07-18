@@ -1,0 +1,23 @@
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #fff; /* or brand color */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.splash-logo {
+  max-width: 300px;
+  margin-bottom: 20px;
+}
+
+.splash-description {
+  font-size: 1.2rem;
+  color: #333;
+}
