@@ -1,280 +1,106 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
-import 'react-circular-progressbar/dist/styles.css';
+import React, { useState, useEffect } from 'react';
 import './App.css';
-import Weather from './Weather';
-import SplashScreen from './SplashScreen';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer
-} from 'recharts';
+import { database } from './firebase';
+import { ref, onValue, set } from 'firebase/database';
 
 function App() {
-  const [plantAMoisture, setPlantAMoisture] = useState(0);
-  const [plantBMoisture, setPlantBMoisture] = useState(0);
-  const [temperature, setTemperature] = useState(0);
-  const [humidity, setHumidity] = useState(0);
-  const [soilDry, setSoilDry] = useState(false);
-  const [motion , Motion] = useState(false);
-  const [garageDoor, GarageDoor] = useState(false);
-  const [outsideLight, OutsideLight] = useState(false);
-  const [insideLight, InsideLight] = useState(false);
-  const [soilDry2, setSoilDry2] = useState(false);
-  const [mode, setMode] = useState("manual");
-  const [error, setError] = useState(null);
-  const [cameraUrl, setCameraUrl] = useState('');
-  const [imageSrc, setImageSrc] = useState('');
-  const [deviceStatus, setDeviceStatus] = useState({
-    fan: false,
-    pump1: false,
-    pump2: false,
-    light: false,
-  });
-
-  const recognitionRef = useRef(null);
-
-  const mockIrrigationHistory = [
-    { day: 'Mon', moisture: 20 },
-    { day: 'Tue', moisture: 35 },
-    { day: 'Wed', moisture: 30 },
-    { day: 'Thu', moisture: 45 },
-    { day: 'Fri', moisture: 40 },
-  ];
-
-  const initializeSpeechRecognition = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech Recognition not supported.");
-      return null;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.lang = 'en-US';
-    recognition.onresult = (event) => {
-      const command = event.results[event.results.length - 1][0].transcript.toLowerCase();
-      if (command.includes("turn on pump one")) toggleDevice("pump1", true);
-      else if (command.includes("turn off pump one")) toggleDevice("pump1", false);
-      else if (command.includes("turn on pump two")) toggleDevice("pump2", true);
-      else if (command.includes("turn off pump two")) toggleDevice("pump2", false);
-      else if (command.includes("turn on fan")) toggleDevice("fan", true);
-      else if (command.includes("turn off fan")) toggleDevice("fan", false);
-      else if (command.includes("turn on light")) toggleDevice("light", true);
-      else if (command.includes("turn off light")) toggleDevice("light", false);
-      else if (command.includes("switch to manual")) updateMode("manual");
-      else if (command.includes("switch to auto")) updateMode("auto");
-    };
-
-    recognition.onerror = (event) => console.error("Speech recognition error:", event.error);
-    return recognition;
-  };
-
-  const updateMode = async (newMode) => {
-    try {
-      await fetch('http://localhost:5000/update-mode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: newMode })
-      });
-      setMode(newMode);
-    } catch (error) {
-      console.error('Mode update failed:', error);
-    }
-
-    if (newMode === "auto") {
-      const recognition = initializeSpeechRecognition();
-      if (recognition) {
-        recognition.start();
-        recognitionRef.current = recognition;
-      }
-    } else {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-    } 
-  };
-
-  const toggleMode = () => updateMode(mode === "auto" ? "manual" : "auto");
-
-  const toggleDevice = async (device, forceStatus = null) => {
-  const newStatus = forceStatus !== null ? forceStatus : !deviceStatus[device];
-
-  try {
-    const res = await fetch('http://localhost:5000/update-device', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device, status: newStatus })
-    });
-
-    if (res.ok) {
-      // Update state ONLY if backend accepted
-      setDeviceStatus(prev => ({ ...prev, [device]: newStatus }));
-      console.log(`✅ ${device} updated to ${newStatus} in Firebase`);
-    } else {
-      const err = await res.json();
-      console.error("❌ Device update failed:", err);
-    }
-  } catch (error) {
-    console.error(`❌ Failed to toggle ${device}:`, error);
-  }
-};
-
+  const [sensorData, setSensorData] = useState({});
+  const [deviceStatus, setDeviceStatus] = useState({});
+  const [mode, setMode] = useState('manual');
 
   useEffect(() => {
-    const fetchSensorData = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/Sensor");
-        if (!res.ok) throw new Error("Failed to fetch sensor data");
-        const data = await res.json();
+    const sensorRef = ref(database, 'sensor_data');
+    const statusRef = ref(database, 'device_status');
+    const modeRef = ref(database, 'control_states/auto_mode');
 
-        console.log("Sensor Data:", data);  // ✅ DEBUGGING LOG
-
-        setPlantAMoisture(data.soil_moisture ?? 0);
-        setPlantBMoisture(data.soil_moisture1 ?? 0);
-        setTemperature(data.temperature ?? 0);
-        setHumidity(data.humidity ?? 0);
-        setSoilDry(data.soil_dry ?? false);
-        setSoilDry2(data.soil_dry2 ?? false);
-        Motion(data.motion ?? false);
-        GarageDoor(data.garage_door ?? false);
-        OutsideLight(data.outside_light ?? false);
-        setDeviceStatus({
-          fan: data.fan ?? false,
-          pump1: data.pump1 ?? false,
-          pump2: data.pump2 ?? false,
-          light: data.light ?? false
-        });
-        setMode(data.mode ?? "manual");
-        setError(null);
-      } catch (err) {
-        console.error("Sensor data fetch failed:", err);
-        setError("Could not load sensor data.");
+    const unsubSensor = onValue(sensorRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setSensorData(snapshot.val());
       }
-    };
+    });
 
-    fetchSensorData(); // fetch once on load
-    const interval = setInterval(fetchSensorData, 10000); // fetch every 10s
-    return () => clearInterval(interval);
+    const unsubStatus = onValue(statusRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setDeviceStatus(snapshot.val());
+      }
+    });
+
+    const unsubMode = onValue(modeRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setMode(snapshot.val() ? 'auto' : 'manual');
+      }
+    });
+
+    return () => {
+      unsubSensor();
+      unsubStatus();
+      unsubMode();
+    };
   }, []);
 
+  const toggleDevice = (deviceKey, currentValue) => {
+    const deviceRef = ref(database, `device_status/${deviceKey}`);
+    set(deviceRef, !currentValue);
+  };
+
+  const toggleMode = () => {
+    const modeRef = ref(database, 'control_states/auto_mode');
+    const newMode = mode === 'auto' ? false : true;
+    set(modeRef, newMode);
+  };
+
   return (
-    <div className="dashboard-container">
-      <h1 className="dashboard-title">Smart IoT Dashboard</h1>
+    <div className="app-container">
+      <h1>Smart Irrigation Dashboard</h1>
 
       <div className="dashboard-section">
         <h2>Sensor Readings</h2>
-        <div className="dashboard-card">
-          <div className="dashboard-item">
-            <h3>Plant A Moisture</h3>
-            <CircularProgressbar value={plantAMoisture} text={`${plantAMoisture}%`}
-              styles={buildStyles({ pathColor: plantAMoisture > 30 ? '#4CAF50' : '#F44336' })} />
-          </div>
-          <div className="dashboard-item">
-            <h3>Plant B Moisture</h3>
-            <CircularProgressbar value={plantBMoisture} text={`${plantBMoisture}%`}
-              styles={buildStyles({ pathColor: plantBMoisture > 30 ? '#4CAF50' : '#F44336' })} />
-          </div>
-          <div className="dashboard-item">
-            <h3>Temperature & Humidity</h3>
-            <p>Temp: {temperature}°C</p>
-            <p>Humidity: {humidity}%</p>
-          </div>
-          <div className="dashboard-item">
-            <h3>Soil Status</h3>
-            <p>Plant A: {soilDry ? "Dry" : "Moist"}</p>
-            <p>Plant B: {soilDry2 ? "Dry" : "Moist"}</p>
-          </div>
-          <div className="dashboard-item">
-            <h3>System Status </h3>
-            <p>Motion Detected: {motion ? "Yes" : "No"}</p>
-            <p>Garage Door: {garageDoor ? "Open" : "Closed"}</p>
-            <p>Inside light: {insideLight ? "True" : "False"}</p>
-            <p>Outside light : {garageDoor ? "True" : "False"}</p>
-            
-          </div>
-          <div className="dashboard-item">
-            <h3>Weather</h3>
-            <Weather/>
-          </div>
+        <div className="card">
+          <p><strong>Soil Moisture A:</strong> {sensorData.soil_moisture ?? 'Loading...'}%</p>
+          <p><strong>Soil Moisture B:</strong> {sensorData.soil_moisture1 ?? 'Loading...'}%</p>
+          <p><strong>Temperature:</strong> {sensorData.temperature ?? 'Loading...'}°C</p>
+          <p><strong>Humidity:</strong> {sensorData.humidity ?? 'Loading...'}%</p>
+          <p><strong>Soil A Dry:</strong> {sensorData.soil_dry ? 'Yes' : 'No'}</p>
+          <p><strong>Soil B Dry:</strong> {sensorData.soil_dry2 ? 'Yes' : 'No'}</p>
         </div>
       </div>
 
       <div className="dashboard-section">
-        <h2>Irrigation History</h2>
-        <div className="dashboard-card">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={mockIrrigationHistory}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="moisture" fill="#4CAF50" />
-            </BarChart>
-          </ResponsiveContainer>
+        <h2>Device Status</h2>
+        <div className="card">
+          <p><strong>Pump 1:</strong> {deviceStatus.pump1 ? 'On' : 'Off'}</p>
+          <p><strong>Pump 2:</strong> {deviceStatus.pump2 ? 'On' : 'Off'}</p>
+          <p><strong>Fan:</strong> {deviceStatus.fan ? 'On' : 'Off'}</p>
+          <p><strong>Inside Light:</strong> {deviceStatus.inside_light ? 'On' : 'Off'}</p>
+          <p><strong>Outside Light:</strong> {deviceStatus.outside_light ? 'On' : 'Off'}</p>
+          <p><strong>Garage Door:</strong> {deviceStatus.garage_door === 1 ? 'Open' : 'Closed'}</p>
         </div>
       </div>
 
       <div className="dashboard-section">
-        <h2>Device Control</h2>
-        <div className="dashboard-card">
-          <div className="dashboard-item">
-            <h3>Mode: {mode === "auto" ? "Automatic" : "Manual"}</h3>
-            <label className="switch">
-              <input type="checkbox" checked={mode === "auto"} onChange={toggleMode} />
-              <span className="slider" />
-            </label>
-            {mode === "auto" && <p style={{ color: "#4CAF50" }}>🎙️ Speak your commands</p>}
+        <h2>Control Panel</h2>
+        <div className="card">
+          <div className="control-item">
+            <label>MODE: {mode.toUpperCase()}</label>
+            <input
+              type="checkbox"
+              checked={mode === 'auto'}
+              onChange={toggleMode}
+            />
           </div>
-          {Object.entries(deviceStatus).map(([device, status]) => (
-            <div className="dashboard-item" key={device}>
-              <h3>{device.toUpperCase()}</h3>
-              <p>Status: {status ? "ON" : "OFF"}</p>
-              {mode === "manual" && (
-                <label className="switch">
-                  <input type="checkbox" checked={status} onChange={() => toggleDevice(device)} />
-                  <span className="slider" />
-                </label>
-              )}
+          {Object.entries(deviceStatus).map(([key, value]) => (
+            <div key={key} className="control-item">
+              <label>{key.replace(/_/g, ' ').toUpperCase()}</label>
+              <input
+                type="checkbox"
+                checked={!!value}
+                onChange={() => toggleDevice(key, value)}
+                disabled={mode === 'auto'}
+              />
             </div>
           ))}
         </div>
       </div>
-
-      <div className="dashboard-section">
-        <h2>Camera Feed</h2>
-        <div className="dashboard-card" style={{ textAlign: 'center' }}>
-          <input
-            type="text"
-            placeholder="Enter camera URL"
-            value={cameraUrl}
-            onChange={(e) => setCameraUrl(e.target.value)}
-            style={{ padding: '10px', width: '70%' }}
-          />
-          <button onClick={() => setImageSrc(cameraUrl)} style={{ marginTop: '10px' }}>
-            Load Feed
-          </button>
-          {imageSrc && (
-            <img
-              src={imageSrc}
-              alt="Camera"
-              width={800}
-              onError={() => alert('Image load failed')}
-              style={{ marginTop: '10px', borderRadius: '10px', border: '1px solid #ccc' }}
-            />
-          )}
-        </div>
-      </div>
-      <div className="dashboard-section">
-        <h2>Motion Sensor (PIR)</h2>
-        </div>
-
-      {error && <div className="error-message">{error}</div>}
     </div>
   );
 }
